@@ -50,28 +50,31 @@ public abstract class Labeller<S,D,R,C,T> extends ZinggBase<S,D,R,C,T> implement
 		}
 	}
 
-	
-	public ZFrame<D,R,C> getUnmarkedRecords() {
-		ZFrame<D,R,C> unmarkedRecords = null;
-		ZFrame<D,R,C> markedRecords = null;
-		try {
-			unmarkedRecords = getPipeUtil().read(false, false, getModelHelper().getTrainingDataUnmarkedPipe(args));
-			try {
-				markedRecords = getPipeUtil().read(false, false, getModelHelper().getTrainingDataMarkedPipe(args));
-			} catch (Exception e) {
-				LOG.warn("No record has been marked yet");
-			}
-			// ZinggClientException is now a subtype of Exception , so this single catch( Exception) already handle it as well as ny runtime error
+// (Design change) ZinggClientException is now a subtype of Exception , so this single catch( Exception) already handle it as well as ny runtime error	
+// The previous version caught every exception , logged a misleading "No marked record". That disguised real failure like bad path , expired credentias and user 
+// was silently told that there was nothing to label while storage was actually broken 	
+	public ZFrame<D,R,C> getUnmarkedRecords() throws ZinggClientException {
+		ZFrame<D,R,C> unmarkedRecords = getPipeUtil().read(false, false, getModelHelper().getTrainingDataUnmarkedPipe(args));
+		ZFrame<D,R,C> markedRecords = readMarkedRecordsOrNull();
+
+			
 			if (markedRecords != null ) {
 				unmarkedRecords = unmarkedRecords.join(markedRecords,ColName.CLUSTER_COLUMN, false,
 						"left_anti");
 				getTrainingDataModel().setMarkedRecordsStat(markedRecords);
 			} 
-		} catch (Exception e) {
-			LOG.warn("No unmarked record for labelling");
-		} 
-		// ZinggClientException is now a subtype of Exception , so this single catch( Exception) already handle it as well as ny runtime error
+		
+	
 		return unmarkedRecords;
+	}
+
+	public ZFrame<D,R,C> readMarkedRecordsOrNull(){
+		try{
+			return getPipeUtil().read(false, false, getModelHelper().getTrainingDataMarkedPipe(args));
+		}catch(ZinggClientException e){
+			LOG.info("No marked records yet - treating as first labelling run.");
+			return null;
+		}
 	}
 
 	public ZFrame<D,R,C> processRecordsCli(ZFrame<D,R,C>  lines) throws ZinggClientException {
