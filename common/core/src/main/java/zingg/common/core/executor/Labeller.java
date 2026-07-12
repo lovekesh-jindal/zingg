@@ -76,61 +76,26 @@ public abstract class Labeller<S,D,R,C,T> extends ZinggBase<S,D,R,C,T> implement
 			return null;
 		}
 	}
-
+/*
+DESIGN CHANGE :  method level SINGLE RESPONSIBILTY PRINCIPLE 
+*/
 	public ZFrame<D,R,C> processRecordsCli(ZFrame<D,R,C>  lines) throws ZinggClientException {
 		LOG.info("Processing Records for CLI Labelling");
 		if (lines != null && lines.count() > 0) {
-			getLabelDataViewHelper().printMarkedRecordsStat(
-					getTrainingDataModel().getPositivePairsCount(),
-					getTrainingDataModel().getNegativePairsCount(),
-					getTrainingDataModel().getNotSurePairsCount(),
-					getTrainingDataModel().getTotalCount()
-					);
-
-			lines = lines.cache();
-//			List<C> displayCols = getLabelDataViewHelper().getDisplayColumns(lines, args);
-			ZidAndFieldDefSelector zidAndFieldDefSelector = new ZidAndFieldDefSelector(args.getFieldDefinition(), false, args.getShowConcise());
-			//have to introduce as snowframe can not handle row.getAs with column
-			//name and row and lines are out of order for the code to work properly
-			//snow getAsString expects row to have same struc as dataframe which is 
-			//not happening
-			ZFrame<D,R,C> clusterIdZFrame = getLabelDataViewHelper().getClusterIdsFrame(lines);
-			List<R>  clusterIDs = getLabelDataViewHelper().getClusterIds(clusterIdZFrame);
-			try {
-				double score;
-				double prediction;
-				ZFrame<D,R,C>  updatedRecords = null;
-				int selectedOption = -1;
-				String msg1, msg2;
-				int totalPairs = clusterIDs.size();
-
-				for (int index = 0; index < totalPairs; index++) {
-					ZFrame<D,R,C>  currentPair = getLabelDataViewHelper().getCurrentPair(lines, index, clusterIDs, clusterIdZFrame);
-
-					score = getLabelDataViewHelper().getScore(currentPair);
-					prediction = getLabelDataViewHelper().getPrediction(currentPair);
-
-					msg1 = getLabelDataViewHelper().getMsg1(index, totalPairs);
-					msg2 = getLabelDataViewHelper().getMsg2(prediction, score);
-					//String msgHeader = msg1 + msg2;
-
-//					selectedOption = displayRecordsAndGetUserInput(getDSUtil().select(currentPair, displayCols), msg1, msg2);
-					selectedOption = displayRecordsAndGetUserInput(currentPair.select(zidAndFieldDefSelector.getCols()), msg1, msg2);
-					getTrainingDataModel().updateLabellerStat(selectedOption, INCREMENT);
-					getLabelDataViewHelper().printMarkedRecordsStat(
-							getTrainingDataModel().getPositivePairsCount(),
-							getTrainingDataModel().getNegativePairsCount(),
-							getTrainingDataModel().getNotSurePairsCount(),
-							getTrainingDataModel().getTotalCount()
-							);
-					if (selectedOption == QUIT_LABELING) {
-						LOG.info("User has quit in the middle. Updating the records.");
-						break;
-					}
-					updatedRecords = getTrainingDataModel().updateRecords(selectedOption, currentPair, updatedRecords);
-				}
-				LOG.info("Processing finished.");
-				return updatedRecords;
+		LOG.info("It seems there are no unmarked records at this moment. Please run findTrainingData Job to build some pairs to be labelled and then run this labeler.");
+		return null;	
+		);
+        printCurrentStats();
+		lines = lines.cache();
+		ZidAndFieldDefSelector zidAndFieldDefSelector = new ZidAndFieldDefSelector(args.getFieldDefinition(), false, args.getShowConcise());
+		//have to introduce as snowframe can not handle row.getAs with column
+		//name and row and lines are out of order for the code to work properly
+		//snow getAsString expects row to have same struc as dataframe which is 
+		//not happening
+		ZFrame<D,R,C> clusterIdZFrame = getLabelDataViewHelper().getClusterIdsFrame(lines);
+		List<R>  clusterIDs = getLabelDataViewHelper().getClusterIds(clusterIdZFrame);
+		try {
+	        return labelAllPairs(lines, clustedIDs, clusterIdZFrame, zidAndFieldDefSelector);
 			} catch (Exception e) {
 				LOG.error("Labelling error has occurred ", e);
 				throw new ZinggClientException("An error has occured while Labelling.", e);
@@ -141,7 +106,41 @@ public abstract class Labeller<S,D,R,C,T> extends ZinggBase<S,D,R,C,T> implement
 		}
 	}
 
-	
+	private ZFrame<D,R,C> labelAllPairs( ZFrame<D,R,C> lines, List<R> clustedIDs, ZFrame<D,R,C> clusterIdZFrame, ZidAndFieldDefSelector zidAndFieldDefSelector){
+		int totalPairs  = clustedIDs.size();
+		ZFrame<D,R,C> updatedRecords = null;
+		for(int index = 0; index < totalPairs , index++){
+			ZFrame<D,R,C> currentPair = getLabelDataViewHelper().getCurrentPair(lines, index, clustedIDs, clusterIdZFrame);
+			int selectedOption = labelSinglePair(currentPair, index, totalPairs, zidAndFieldDefSelector);
+			if(selectedOption == QUIT_LABELING){
+				LOG.info("User has quit in the middle. Updating the records.");
+				break;
+			}
+			updatedRecords = recordAnswer(selectedOption, currentPair , updatedRecords);
+		}
+		LOG.info("Processing finised.");
+		return updatedRecords;
+	}
+   	private int labelSinglePair(ZFrame<D,R,C> currentPair, int index, int totalPairs, ZidAndFieldDefSelector zidAndFieldDefSelector) throws ZinggClientException{
+		double score  = getLabelDataViewHelper().getScore(currentPair);
+		double prediction = getLabelDataViewHelper().getPrediction(currentPair);
+		String msg1 = getLabelDataViewHelper().getMsg1(index, totalPairs);
+		String msg2 = getLabelDataViewHelper().getMsg2(prediction, score);
+		return displayRecordsAndGetUserInput(currentPair.select(zidAndFieldDefSelector.getCols()), msg1, msg2);
+	}
+	private ZFrame<D,R,C> recordAnswer(int selectedOption,  ZFrame<D,R,C> currentPair, ZFrame<D,R,C> updatedRecords){
+		getTrainingDataModel().updateLabellerStat(selectedOption, INCREMENT);
+		printCurrentStats();
+		return getTrainingDataModel().updateRecords(selectedOption, currentPair, updatedRecords);
+	}
+	private void printCurrentStats(){
+		getLabelDataViewHelper().printMarkedRecordsStat(
+					getTrainingDataModel().getPositivePairsCount(),
+					getTrainingDataModel().getNegativePairsCount(),
+					getTrainingDataModel().getNotSurePairsCount(),
+					getTrainingDataModel().getTotalCount()
+			);
+	}
 	protected int displayRecordsAndGetUserInput(ZFrame<D,R,C> records, String preMessage, String postMessage) throws ZinggClientException {
 		getLabelDataViewHelper().displayRecords(records, preMessage, postMessage);
 		return readCliInput().code();
