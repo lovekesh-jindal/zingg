@@ -60,9 +60,8 @@ public abstract class Labeller<S,D,R,C,T> extends ZinggBase<S,D,R,C,T> implement
 				markedRecords = getPipeUtil().read(false, false, getModelHelper().getTrainingDataMarkedPipe(args));
 			} catch (Exception e) {
 				LOG.warn("No record has been marked yet");
-			} catch (ZinggClientException zce) {
-					LOG.warn("No record has been marked yet");
-			}			
+			}
+			// ZinggClientException is now a subtype of Exception , so this single catch( Exception) already handle it as well as ny runtime error
 			if (markedRecords != null ) {
 				unmarkedRecords = unmarkedRecords.join(markedRecords,ColName.CLUSTER_COLUMN, false,
 						"left_anti");
@@ -70,10 +69,8 @@ public abstract class Labeller<S,D,R,C,T> extends ZinggBase<S,D,R,C,T> implement
 			} 
 		} catch (Exception e) {
 			LOG.warn("No unmarked record for labelling");
-		} catch (ZinggClientException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
+		} 
+		// ZinggClientException is now a subtype of Exception , so this single catch( Exception) already handle it as well as ny runtime error
 		return unmarkedRecords;
 	}
 
