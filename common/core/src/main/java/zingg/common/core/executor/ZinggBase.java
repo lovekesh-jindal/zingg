@@ -99,8 +99,8 @@ public abstract class ZinggBase<S,D, R, C, T> extends ZinggBaseCommon<S, D, R, C
             return null;
         }
 	}
-
-	public ZFrame<D,R,C> getUnmarkedRecords(){
+// signature declares throws ZinggClientException to match the interface and to allow subclass to override it with clean error propagation
+	public ZFrame<D,R,C> getUnmarkedRecords() throws ZinggClientException{
         try{
             ZFrame<D,R,C> unmarkedRecords = null;
             ZFrame<D,R,C> markedRecords = null;
