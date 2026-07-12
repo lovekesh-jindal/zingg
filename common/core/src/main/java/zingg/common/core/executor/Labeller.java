@@ -1,8 +1,6 @@
 package zingg.common.core.executor;
 
 import java.util.List;
-import java.util.Optional;
-import java.util.Scanner;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -27,6 +25,7 @@ public abstract class Labeller<S,D,R,C,T> extends ZinggBase<S,D,R,C,T> implement
 	public static final Log LOG = LogFactory.getLog(Labeller.class);
 	protected ITrainingDataModel<S, D, R, C> trainingDataModel;
 	protected ILabelDataViewHelper<S, D, R, C> labelDataViewHelper;
+	protected LabelUserInput labelUserInput;
 	
 	public Labeller() {
 		setZinggOption(ZinggOptions.LABEL);
@@ -148,24 +147,22 @@ public abstract class Labeller<S,D,R,C,T> extends ZinggBase<S,D,R,C,T> implement
 		return readCliInput().code();
 	}
 
-// DESIGN CHANGE : return a typed LabelOption instead of a bare int and derives the set of valid inputs from the enum rather than the hand maintained
-// "[0129]" regex , so the allowed options cannot srift out of sync 	
-	LabelOption readCliInput() {
-		Scanner sc = new Scanner(System.in);
-
-		while (true) {
-			Optional<LabelOption> option = Optional.empty();
-			if(sc.hasNextInt()){
-				option = LabelOption.fromCode(sc.nextInt());
-			}else{
-				sc.next();
-			}
-			if(option.isPresent()){
-				return option.get();
-			}
-			System.out.println("Nope, please enter one of the allowed options!");
+	public LabelUserInput getLabelUserInput(){
+		if(labelUserInput == null){
+			labelUserInput = new CliLabelUserInput();
 		}
-		
+		return labelUserInput;
+	}
+	
+	public void setLabelUserInput(LabelUserInput labelUserInput){
+		this.labelUserInput = labelUserInput;
+	}
+
+// DESIGN CHANGE : return a typed LabelOption instead of a bare int and derives the set of valid inputs from the enum rather than the hand maintained
+// "[0129]" regex , so the allowed options cannot drift out of sync 	
+// here we are decoupling the labelling loop from the console 
+	LabelOption readCliInput() {
+		return getLabelUserInput().getUserSelection();
 	}
 
 	@Override
