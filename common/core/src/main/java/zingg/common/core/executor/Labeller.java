@@ -129,10 +129,10 @@ public abstract class Labeller<S,D,R,C,T> extends ZinggBase<S,D,R,C,T> implement
 					}
 					updatedRecords = getTrainingDataModel().updateRecords(selectedOption, currentPair, updatedRecords);
 				}
-				LOG.warn("Processing finished.");
+				LOG.info("Processing finished.");
 				return updatedRecords;
 			} catch (Exception e) {
-				LOG.warn("Labelling error has occured " + e.getMessage());
+				LOG.error("Labelling error has occurred ", e);
 				throw new ZinggClientException("An error has occured while Labelling.", e);
 			}
 		} else {
