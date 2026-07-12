@@ -1,6 +1,7 @@
 package zingg.common.core.executor;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Scanner;
 
 import org.apache.commons.logging.Log;
@@ -18,8 +19,8 @@ import zingg.common.core.preprocess.IPreprocessors;
 import zingg.common.core.util.LabellerUtil;
 
 public abstract class Labeller<S,D,R,C,T> extends ZinggBase<S,D,R,C,T> implements IPreprocessors<S,D,R,C,T> {
-
-	public static final Integer QUIT_LABELING = 9;
+// DESIGN CHANGE : the quit code is now sourced from LabelOption instead of a bare magic literal , so the value lives in exactly one place.
+	public static final Integer QUIT_LABELING = LabelOption.QUIT.code();
 	public static final Integer INCREMENT = 1;
 	private static final long serialVersionUID = 1L;
 	protected static String name = "zingg.common.core.executor.Labeller";
@@ -144,23 +145,27 @@ public abstract class Labeller<S,D,R,C,T> extends ZinggBase<S,D,R,C,T> implement
 	
 	protected int displayRecordsAndGetUserInput(ZFrame<D,R,C> records, String preMessage, String postMessage) throws ZinggClientException {
 		getLabelDataViewHelper().displayRecords(records, preMessage, postMessage);
-		int selection = readCliInput();
-		return selection;
+		return readCliInput().code();
 	}
 
-
-	int readCliInput() {
+// DESIGN CHANGE : return a typed LabelOption instead of a bare int and derives the set of valid inputs from the enum rather than the hand maintained
+// "[0129]" regex , so the allowed options cannot srift out of sync 	
+	LabelOption readCliInput() {
 		Scanner sc = new Scanner(System.in);
 
-		while (!sc.hasNext("[0129]")) {
-			sc.next();
+		while (true) {
+			Optional<LabelOption> option = Optional.empty();
+			if(sc.hasNextInt()){
+				option = LabelOption.fromCode(sc.nextInt());
+			}else{
+				sc.next();
+			}
+			if(option.isPresent()){
+				return option.get();
+			}
 			System.out.println("Nope, please enter one of the allowed options!");
 		}
-		String word = sc.next();
-		int selection = Integer.parseInt(word);
-		// sc.close();
-
-		return selection;
+		
 	}
 
 	@Override
